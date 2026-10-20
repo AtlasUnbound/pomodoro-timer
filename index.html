@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro — Precision Focus Timer</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" id="dynamic-favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23ff5e5b'/></svg>">
+</head>
+<body data-mode="focus">
+  <div class="ambient-glow" aria-hidden="true"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <h1>ChronoFocus</h1>
+        <span class="badge" title="Powered by Web Worker + Monotonic Delta Timing">Zero-Drift Engine</span>
+      </div>
+      <div class="header-actions">
+        <button id="pip-btn" class="icon-btn" title="Mini Floating Timer (Picture-in-Picture)" aria-label="Toggle Picture in Picture">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <rect x="12" y="9" width="8" height="6" rx="1" ry="1"></rect>
+          </svg>
+        </button>
+        <button id="sound-toggle-btn" class="icon-btn" title="Toggle Audio Chime" aria-label="Toggle Audio Chime">
+          <svg id="sound-on-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+          <svg id="sound-off-icon" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
+        </button>
+        <button id="settings-btn" class="icon-btn" title="Timer Settings (S)" aria-label="Open Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Mode Switcher -->
+    <nav class="mode-tabs" role="tablist" aria-label="Timer Modes">
+      <button class="mode-tab active" data-mode="focus" role="tab" aria-selected="true">
+        Focus
+      </button>
+      <button class="mode-tab" data-mode="shortBreak" role="tab" aria-selected="false">
+        Short Break
+      </button>
+      <button class="mode-tab" data-mode="longBreak" role="tab" aria-selected="false">
+        Long Break
+      </button>
+    </nav>
+
+    <!-- Main Timer Card -->
+    <main class="timer-card">
+      <div class="ring-container">
+        <svg class="progress-ring" width="300" height="300" viewBox="0 0 300 300">
+          <circle class="progress-ring__track" cx="150" cy="150" r="134" />
+          <circle id="progress-bar" class="progress-ring__bar" cx="150" cy="150" r="134" />
+        </svg>
+
+        <div class="timer-readout">
+          <div class="session-pill">
+            <span id="cycle-indicator">Session #1</span>
+            <span class="dot-divider">•</span>
+            <span id="drift-status" title="Real-time Web Worker synchronization status">±0ms drift</span>
+          </div>
+          <div id="time-display" class="time-display" role="timer" aria-live="off">25:00</div>
+          <div class="quick-adjust">
+            <button id="minus-1m-btn" class="chip-btn" title="Subtract 1 minute">-1m</button>
+            <button id="plus-1m-btn" class="chip-btn" title="Add 1 minute">+1m</button>
+            <button id="plus-5m-btn" class="chip-btn" title="Add 5 minutes">+5m</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cycle Dots -->
+      <div id="cycle-dots" class="cycle-dots" aria-label="Pomodoro Cycle Progress"></div>
+
+      <!-- Primary Controls -->
+      <div class="controls">
+        <button id="reset-btn" class="control-btn secondary" title="Reset Timer (R)" aria-label="Reset Timer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+        </button>
+
+        <button id="start-pause-btn" class="control-btn primary" title="Start or Pause (Space)">
+          <svg id="play-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="6 4 20 12 6 20 6 4"></polygon>
+          </svg>
+          <svg id="pause-icon" class="hidden" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+            <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+          </svg>
+          <span id="start-pause-label">Start Focus</span>
+        </button>
+
+        <button id="skip-btn" class="control-btn secondary" title="Skip to Next Session (N)" aria-label="Skip Session">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <line x1="19" y1="5" x2="19" y2="19"></line>
+          </svg>
+        </button>
+      </div>
+    </main>
+
+    <!-- Focus Intent / Task Bar & Stats -->
+    <section class="bottom-panel">
+      <div class="intent-box">
+        <label for="focus-intent" class="intent-label">CURRENT OBJECTIVE</label>
+        <input
+          type="text"
+          id="focus-intent"
+          class="intent-input"
+          placeholder="What are you focusing on right now?"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-value" id="stat-completed">0</span>
+          <span class="stat-label">Completed Today</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-minutes">0m</span>
+          <span class="stat-label">Total Focus Time</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-target">1 / 4</span>
+          <span class="stat-label">Long Break Cycle</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Keyboard Shortcuts Footer -->
+    <footer class="shortcuts-bar">
+      <span><kbd>Space</kbd> Start / Pause</span>
+      <span><kbd>R</kbd> Reset</span>
+      <span><kbd>N</kbd> Skip</span>
+      <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Modes</span>
+      <span><kbd>S</kbd> Settings</span>
+    </footer>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="settings-title">Timer Configuration</h2>
+        <button id="close-settings-btn" class="icon-btn" aria-label="Close Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <form id="settings-form" class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="input-focus">Focus (min)</label>
+            <input type="number" id="input-focus" min="1" max="180" value="25" required>
+          </div>
+          <div class="form-group">
+            <label for="input-short">Short Break (min)</label>
+            <input type="number" id="input-short" min="1" max="60" value="5" required>
+          </div>
+          <div class="form-group">
+            <label for="input-long">Long Break (min)</label>
+            <input type="number" id="input-long" min="1" max="90" value="15" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="input-interval">Sessions before Long Break</label>
+          <input type="number" id="input-interval" min="2" max="12" value="4" class="small-input" required>
+        </div>
+
+        <div class="form-row">
+          <label for="input-auto-break">Auto-start Breaks</label>
+          <input type="checkbox" id="input-auto-break" class="toggle-checkbox">
+        </div>
+
+        <div class="form-row">
+          <label for="input-auto-focus">Auto-start Focus</label>
+          <input type="checkbox" id="input-auto-focus" class="toggle-checkbox">
+        </div>
+
+        <div class="form-row">
+          <label for="input-notifications">Desktop Notifications</label>
+          <button type="button" id="request-notif-btn" class="small-btn">Enable</button>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="reset-stats-btn" class="text-danger-btn">Reset Today's Stats</button>
+          <button type="submit" class="save-btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Hidden Canvas & Video for Picture-in-Picture Floating Mini Timer -->
+  <canvas id="pip-canvas" width="320" height="180" class="hidden"></canvas>
+  <video id="pip-video" muted playsinline class="hidden"></video>
+
+  <script src="app.js"></script>
+</body>
+</html>
